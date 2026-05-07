@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>정기시험 결과 분석 및 개선 방안</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #64748b;
+            --success-color: #059669;
+            --bg-color: #e8f0fe;
+            --card-bg: #f0f6ff;
+            --border-color: #bfcfea;
+            --blue-light: #dbeafe;
+            --blue-mid: #93c5fd;
+            --header-bg: #1e40af;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f1f5f9;
+            color: #1e293b;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            background: #ffffff;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(37, 99, 235, 0.12);
+            border: 1px solid #bfdbfe;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: none;
+            color: #1e40af;
+        }
+
+        .config-section {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            align-items: center;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            padding: 15px;
+            border-radius: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        input[type="number"], input[type="text"] {
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        input[type="number"] { width: 80px; }
+        input[type="text"] { width: 100px; }
+
+        .drop-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .drop-zone {
+            border: 2px dashed #93c5fd;
+            border-radius: 10px;
+            padding: 25px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f0f9ff;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .drop-zone.dragover { border-color: var(--primary-color); background-color: #dbeafe; }
+        .drop-zone.success  { border-color: var(--success-color); background-color: #f0fdf4; }
+
+        .drop-zone h3 { margin: 0; font-size: 1rem; color: #1e40af; margin-bottom: 8px; font-weight: 600; }
+
+        .instruction {
+            color: #2563eb;
+            font-size: 0.8rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #e2e8f0;
+            color: #475569;
+        }
+        .status-badge.complete { background: var(--success-color); color: white; }
+        .status-badge.error    { background: #ef4444; color: white; }
+
+        .hidden { display: none; }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 40px;
+            margin-bottom: 10px;
+        }
+
+        h2 { font-size: 1.1rem; margin: 0; color: #1e40af; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+            font-size: 0.85rem;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            text-align: center;
+        }
+
+        th { background-color: #dbeafe; color: #1e40af; font-weight: 600; border-color: #93c5fd; }
+
+        .copy-btn {
+            background-color: var(--success-color);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: opacity 0.2s;
+        }
+        .copy-btn:hover { opacity: 0.8; }
+
+        .analysis-box {
+            background-color: #eff6ff;
+            border: 1px solid #bfdbfe;
+            padding: 20px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            line-height: 1.8;
+            font-size: 0.9rem;
+            color: #1e293b;
+        }
+
+        .generate-btn {
+            width: 100%;
+            padding: 15px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-bottom: 30px;
+        }
+        .generate-btn:disabled { background-color: #94a3b8; cursor: not-allowed; }
+
+        /* 디버그 탭 */
+        .debug-toggle {
+            width: 100%;
+            padding: 8px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-bottom: 10px;
+            text-align: left;
+        }
+        .debug-toggle:hover { background: #e2e8f0; }
+
+        .debug-panel {
+            background: #0f172a;
+            color: #94a3b8;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .debug-panel .dbg-title { color: #38bdf8; font-weight: bold; margin-top: 10px; display: block; }
+        .debug-panel .dbg-ok    { color: #4ade80; }
+        .debug-panel .dbg-warn  { color: #facc15; }
+        .debug-panel .dbg-err   { color: #f87171; }
+        .debug-panel table      { color: #cbd5e1; border-color: #334155; font-size: 0.7rem; width: auto; min-width: 100%; }
+        .debug-panel th         { background: #1e293b; border-color: #334155; padding: 4px 8px; }
+        .debug-panel td         { border-color: #334155; padding: 4px 8px; text-align: left; }
+
+        .footer-note {
+            margin-top: 20px;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            text-align: center;
+        }
+        /* 클릭 복사 셀 */
+        #results-container td { cursor: pointer; transition: background 0.15s; }
+        #results-container td:hover { background-color: #eff6ff; }
+        #results-container td.copied { background-color: #d1fae5 !important; }
+        .copy-hint { font-size: 0.72rem; color: #94a3b8; margin-bottom: 4px; text-align: right; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>&#60; 정기시험 결과 분석 및 개선 방안 &#62;</h1>
+
+    <div class="config-section">
+        <div>
+            <strong>과목명:</strong>
+            <input type="text" id="subjectName" value="과학" placeholder="예: 과학">
+        </div>
+        <div>
+            <strong>예상 평균:</strong>
+            <input type="number" id="expectedAvg" value="70"> 점
+        </div>
+    </div>
+
+    <div class="drop-grid">
+        <!-- 1. 성적집계표 -->
+        <div id="drop-1" class="drop-zone" onclick="document.getElementById('file-1').click()">
+            <div id="badge-1" class="status-badge">대기 중</div>
+            <h3>1. 성적집계표</h3>
+            <p class="instruction">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><polyline points="9 15 12 12 15 15"></polyline></svg>
+                다운로드한 엑셀 파일을 드래그 앤 드롭 하세요.
+            </p>
+            <input type="file" id="file-1" class="hidden" accept=".xlsx, .xls">
+        </div>
+
+        <!-- 2. 도수분포표 -->
+        <div id="drop-2" class="drop-zone" onclick="document.getElementById('file-2').click()">
+            <div id="badge-2" class="status-badge">대기 중</div>
+            <h3>2. 도수분포표</h3>
+            <p class="instruction">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><polyline points="9 15 12 12 15 15"></polyline></svg>
+                다운로드한 엑셀 파일을 드래그 앤 드롭 하세요.
+            </p>
+            <input type="file" id="file-2" class="hidden" accept=".xlsx, .xls">
+        </div>
+
+        <!-- 3. 정답률비교표 -->
+        <div id="drop-3" class="drop-zone" onclick="document.getElementById('file-3').click()">
+            <div id="badge-3" class="status-badge">대기 중</div>
+            <h3>3. 정답률비교표</h3>
+            <p class="instruction">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><polyline points="9 15 12 12 15 15"></polyline></svg>
+                다운로드한 엑셀 파일을 드래그 앤 드롭 하세요.
+            </p>
+            <input type="file" id="file-3" class="hidden" accept=".xlsx, .xls">
+        </div>
+    </div>
+
+    <!-- 디버그 패널 -->
+    <button class="debug-toggle" onclick="toggleDebug()">🔍 파일 파싱 디버그 보기 (문제 발생 시 확인용)</button>
+    <div id="debug-panel" class="debug-panel hidden">
+        <span style="color:#64748b">파일을 업로드하면 여기에 파싱 결과가 표시됩니다.</span>
+    </div>
+
+    <button id="btn-generate" class="generate-btn" onclick="processAll()">분석 결과 생성하기</button>
+
+    <!-- 결과 영역 -->
+    <div id="results-container" class="hidden">
+        <p class="copy-hint">💡 각 셀을 클릭하면 해당 값이 복사됩니다</p>
+
+        <!-- 1. 평가 결과 개요 -->
+        <div class="section-header">
+            <h2>1. 평가 결과 개요</h2>
+            <button class="copy-btn" onclick="copyTable('summary-table')">표 복사</button>
+        </div>
+        <table id="summary-table">
+            <thead>
+                <tr>
+                    <th>학년</th>
+                    <th>예상 평균</th>
+                    <th>실제 평균</th>
+                    <th>최고점</th>
+                    <th>최하점</th>
+                </tr>
+            </thead>
+            <tbody id="summary-body"></tbody>
+        </table>
+
+        <!-- 2. 점수 분포 -->
+        <div class="section-header" style="margin-top:40px;">
+            <h2>2. 점수 분포</h2>
+        </div>
+
+        <!-- 2-1) 학급별 평균 -->
+        <div class="section-header" style="margin-top:10px;">
+            <h2 style="font-size:0.95rem; color:#475569;">1) 학급별 평균</h2>
+            <button class="copy-btn" onclick="copyTable('class-table')">표 복사</button>
+        </div>
+        <table id="class-table">
+            <thead id="class-head"></thead>
+            <tbody id="class-body"></tbody>
+        </table>
+
+        <!-- 2-2) 성취 수준별 학생 분포 분석 -->
+        <div class="section-header" style="margin-top:20px;">
+            <h2 style="font-size:0.95rem; color:#475569;">2) 성취 수준별 학생 분포 분석</h2>
+            <button class="copy-btn" onclick="copyTable('achievement-table')">표 복사</button>
+        </div>
+        <table id="achievement-table">
+            <thead>
+                <tr>
+                    <th rowspan="2">학년</th>
+                    <th colspan="5">급간</th>
+                    <th rowspan="2">응시<br>인원</th>
+                </tr>
+                <tr>
+                    <th>A<br><span style="font-weight:normal;font-size:0.75rem">90~100이하</span></th>
+                    <th>B<br><span style="font-weight:normal;font-size:0.75rem">80~90미만</span></th>
+                    <th>C<br><span style="font-weight:normal;font-size:0.75rem">70~80미만</span></th>
+                    <th>D<br><span style="font-weight:normal;font-size:0.75rem">60~70미만</span></th>
+                    <th>E<br><span style="font-weight:normal;font-size:0.75rem">60미만</span></th>
+                </tr>
+            </thead>
+            <tbody id="achievement-body"></tbody>
+        </table>
+
+        <!-- 3. 정답률 분석 -->
+        <div class="section-header" style="margin-top:40px;">
+            <h2>3. 정답률 분석</h2>
+            <button class="copy-btn" onclick="copyTable('correct-rate-table')">표 복사</button>
+        </div>
+        <table id="correct-rate-table">
+            <thead>
+                <tr>
+                    <th rowspan="2">학년</th>
+                    <th colspan="5">정답률 구간별 문항 수</th>
+                    <th rowspan="2">선택형<br>문항수</th>
+                </tr>
+                <tr>
+                    <th>90이상~<br>100이하</th>
+                    <th>70이상~<br>90미만</th>
+                    <th>50이상~<br>70미만</th>
+                    <th>30이상~<br>50미만</th>
+                    <th>0이상~<br>30미만</th>
+                </tr>
+            </thead>
+            <tbody id="correct-rate-body"></tbody>
+        </table>
+
+        <!-- 4. 분석 및 개선 방안 -->
+        <div class="section-header" style="margin-top:40px;">
+            <h2>4. 분석 및 개선 방안</h2>
+            <button class="copy-btn" onclick="copyText('analysis-text')">텍스트 복사</button>
+        </div>
+        <div id="analysis-text" class="analysis-box"></div>
+    </div>
+
+    <div class="footer-note">
+        ※ 업로드된 엑셀 파일은 브라우저 내에서만 처리되며, 외부로 유출되거나 서버에 저장되지 않습니다.
+    </div>
+</div>
+
+<script>
+    let dataStore = { summary: null, distribution: null, correctRates: null };
+    let debugLog = { 1: '', 2: '', 3: '' };
+
+    function log(id, cls, msg) {
+        debugLog[id] += `<span class="dbg-${cls}">${escHtml(msg)}</span>\n`;
+        refreshDebug();
+    }
+    function logTable(id, rows) {
+        if (!rows || rows.length === 0) return;
+        const preview = rows.slice(0, Math.min(15, rows.length));
+        let html = '<table><tr>';
+        const maxCols = Math.max(...preview.map(r => r.length));
+        for (let c = 0; c < maxCols; c++) html += `<th>열${c}</th>`;
+        html += '</tr>';
+        preview.forEach((row, ri) => {
+            html += `<tr>`;
+            for (let c = 0; c < maxCols; c++) {
+                const v = row[c] !== undefined ? row[c] : '';
+                html += `<td>${escHtml(String(v))}</td>`;
+            }
+            html += '</tr>';
+        });
+        html += '</table>';
+        debugLog[id] += html + '\n';
+        refreshDebug();
+    }
+    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function refreshDebug() {
+        const panel = document.getElementById('debug-panel');
+        let html = '';
+        [1,2,3].forEach(id => {
+            if (debugLog[id]) {
+                const titles = ['성적집계표','도수분포표','정답률비교표'];
+                html += `<span class="dbg-title">─── 파일 ${id}: ${titles[id-1]} ───</span>\n`;
+                html += debugLog[id];
+            }
+        });
+        panel.innerHTML = html || '<span style="color:#64748b">파일을 업로드하면 여기에 파싱 결과가 표시됩니다.</span>';
+    }
+    function toggleDebug() {
+        const p = document.getElementById('debug-panel');
+        p.classList.toggle('hidden');
+    }
+
+    // ── 드래그 앤 드롭 이벤트 등록 ──
+    [1, 2, 3].forEach(id => {
+        const zone  = document.getElementById(`drop-${id}`);
+        const input = document.getElementById(`file-${id}`);
+        zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('dragover'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+        zone.addEventListener('drop', e => {
+            e.preventDefault();
+            zone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) handleFileInput(e.dataTransfer.files[0], id);
+        });
+        input.addEventListener('change', e => {
+            if (e.target.files.length) handleFileInput(e.target.files[0], id);
+        });
+    });
+
+    async function handleFileInput(file, id) {
+        debugLog[id] = '';
+        log(id, 'ok', `파일명: ${file.name}`);
+
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                // cellText: true → 병합 셀 텍스트까지 읽음, defval: '' → undefined 방지
+                const workbook = XLSX.read(data, { type: 'array', cellText: true, cellDates: true });
+                const sheetName = workbook.SheetNames[0];
+                log(id, 'ok', `시트명: ${sheetName}`);
+                const sheet = workbook.Sheets[sheetName];
+
+                // sheet_to_json raw:false → 서식 적용된 텍스트로 읽기
+                const jsonRaw  = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+                // 빈 행 제거
+                const rows = jsonRaw.map(r => r.map(c => String(c).trim())).filter(r => r.some(c => c !== ''));
+
+                log(id, 'ok', `총 ${rows.length}행 파싱됨 (앞 15행 미리보기):`);
+                logTable(id, rows);
+
+                const success = parseFile(rows, id);
+                const badge = document.getElementById(`badge-${id}`);
+                const zone  = document.getElementById(`drop-${id}`);
+                if (success) {
+                    zone.classList.add('success');
+                    badge.innerText = '완료';
+                    badge.className = 'status-badge complete';
+                    log(id, 'ok', '✓ 파싱 성공');
+                } else {
+                    zone.classList.remove('success');
+                    badge.innerText = '오류';
+                    badge.className = 'status-badge error';
+                    // 실패 시 자동으로 디버그 패널 열기
+                    document.getElementById('debug-panel').classList.remove('hidden');
+                }
+            } catch (err) {
+                log(id, 'err', `예외 발생: ${err.message}`);
+                document.getElementById('debug-panel').classList.remove('hidden');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // ══════════════════════════════════════════
+    //  강화된 파서
+    // ══════════════════════════════════════════
+    function parseFile(rows, id) {
+        try {
+            if (id === 1) return parseSummary(rows);
+            if (id === 2) return parseDistribution(rows);
+            if (id === 3) return parseCorrectRates(rows);
+        } catch (err) {
+            log(id, 'err', `파서 오류: ${err.message}`);
+            return false;
+        }
+    }
+
+    // ── 파일1: 성적집계표 ──
+    function parseSummary(rows) {
+        const subjectInput = document.getElementById('subjectName').value.trim().replace(/\s/g, '');
+        log(1, 'ok', `찾는 과목명: "${subjectInput}"`);
+
+        // 1단계: 헤더 행 탐색 — 과목명이 포함된 열 인덱스 찾기
+        //   NEIS 집계표는 여러 행에 걸쳐 헤더가 있을 수 있음 → 모든 행 검색
+        let headerRowIdx = -1;
+        let targetColIdx = -1;
+
+        for (let ri = 0; ri < rows.length; ri++) {
+            const row = rows[ri];
+            for (let ci = 0; ci < row.length; ci++) {
+                const cell = row[ci].replace(/\s/g, '');
+                if (cell.includes(subjectInput)) {
+                    headerRowIdx = ri;
+                    targetColIdx = ci;
+                    log(1, 'ok', `과목 발견 → 행${ri} 열${ci}: "${rows[ri][ci]}"`);
+                    break;
+                }
+            }
+            if (targetColIdx !== -1) break;
+        }
+
+        if (targetColIdx === -1) {
+            log(1, 'err', `"${subjectInput}" 과목을 찾을 수 없습니다.`);
+            log(1, 'warn', '힌트: 과목명을 정확히 입력했는지 확인하세요. 위 미리보기에서 실제 셀 텍스트를 확인하세요.');
+            alert(`"${subjectInput}" 과목을 찾을 수 없습니다.\n디버그 패널을 열어 실제 셀 이름을 확인하세요.`);
+            return false;
+        }
+
+        // 2단계: 헤더 이후 행에서 반별 데이터 추출
+        //   첫 번째 열이 숫자(반 번호) → 해당 행의 targetColIdx 값 = 평균
+        let classAvgs = {};
+        let totalAvg = null;
+        let maxScore = null;
+        let minScore = null;
+
+        for (let ri = headerRowIdx + 1; ri < rows.length; ri++) {
+            const row = rows[ri];
+            const firstCell = row[0].replace(/\s/g, '');
+            const val = parseFloat(row[targetColIdx]);
+
+            // 반 번호 행 (1~20 정도의 숫자)
+            if (/^\d{1,2}$/.test(firstCell)) {
+                if (!isNaN(val)) {
+                    classAvgs[firstCell] = val;
+                    log(1, 'ok', `  반 ${firstCell} → ${val}`);
+                }
+            }
+
+            // 과목평균 / 전체평균 행
+            if (firstCell.includes('과목평균') || firstCell.includes('전체평균') || firstCell.includes('평균')) {
+                if (!isNaN(val) && totalAvg === null) {
+                    totalAvg = val;
+                    log(1, 'ok', `  전체 평균 → ${val} (행: "${row[0]}")`);
+                }
+            }
+
+            // 최고점 행
+            if (firstCell.includes('최고') || firstCell.includes('최대')) {
+                if (!isNaN(val) && maxScore === null) {
+                    maxScore = val;
+                    log(1, 'ok', `  최고점 → ${val}`);
+                }
+            }
+
+            // 최저점 행
+            if (firstCell.includes('최저') || firstCell.includes('최소') || firstCell.includes('최하')) {
+                if (!isNaN(val) && minScore === null) {
+                    minScore = val;
+                    log(1, 'ok', `  최저점 → ${val}`);
+                }
+            }
+        }
+
+        const values = Object.values(classAvgs);
+        if (values.length === 0) {
+            log(1, 'warn', '반별 평균을 찾지 못했습니다. 미리보기에서 행 구조를 확인하세요.');
+        }
+
+        // totalAvg 없으면 반 평균으로 계산
+        if (totalAvg === null && values.length > 0) {
+            totalAvg = parseFloat((values.reduce((a,b)=>a+b, 0) / values.length).toFixed(1));
+            log(1, 'warn', `전체 평균을 직접 찾지 못해 반 평균의 평균으로 대체: ${totalAvg}`);
+        }
+
+        // max/min 없으면 반 평균 중 최대/최소로 대체
+        if (maxScore === null && values.length > 0) { maxScore = Math.max(...values); }
+        if (minScore === null && values.length > 0) { minScore = Math.min(...values); }
+
+        dataStore.summary = { classAvgs, totalAvg, max: maxScore, min: minScore };
+        log(1, 'ok', `최종: 평균=${totalAvg}, 최고=${maxScore}, 최저=${minScore}, 반 수=${values.length}`);
+        return true;
+    }
+
+    // ── 파일2: 도수분포표 ──
+    function parseDistribution(rows) {
+        // NEIS 도수분포표 구조 (확인된 실제 구조):
+        //   열0     : 점수 구간 텍스트 ("90이상 ~ 100.00이하", "80이상 ~ 90미만", ...)
+        //   열1~N   : 반별 인원
+        //   합계 열  : "합 계" 또는 "합계" 헤더, 값은 "106 명" 형태
+        //   E(60미만): 하한 0~59인 모든 구간 학생 수 합산
+
+        let dist = { A:0, B:0, C:0, D:0, E:0 };
+        let total = 0;
+        let countColIdx = -1;
+        let headerRowIdx = -1;
+
+        // 1단계: "합 계" / "합계" / "인원" / "명" 포함 열 탐색
+        for (let ri = 0; ri < rows.length; ri++) {
+            const row = rows[ri];
+            for (let ci = 0; ci < row.length; ci++) {
+                const c = row[ci].replace(/\s/g, '');
+                if (c === '합계' || c === '합계(명)' || c.includes('합계') || c.includes('인원') || c === '명') {
+                    countColIdx = ci;
+                    headerRowIdx = ri;
+                    log(2, 'ok', `합계 열 발견: 행${ri} 열${ci} → "${row[ci]}"`);
+                    break;
+                }
+            }
+            if (countColIdx !== -1) break;
+        }
+
+        // 2단계: 헤더 못 찾으면 → 점수 구간이 있는 첫 데이터 행에서
+        //         "N 명" 패턴이 있는 열을 합계 열로 사용
+        if (countColIdx === -1) {
+            log(2, 'warn', '합계 열 헤더를 찾지 못함 → "N 명" 패턴으로 열 탐색');
+            outer: for (let ri = 0; ri < rows.length; ri++) {
+                const row = rows[ri];
+                if (!/^\d|이상|이하|미만/.test(row[0])) continue; // 구간 행만
+                for (let ci = 1; ci < row.length; ci++) {
+                    if (/\d+\s*명/.test(row[ci])) {
+                        countColIdx = ci;
+                        headerRowIdx = ri - 1;
+                        log(2, 'warn', `"N 명" 패턴 발견: 행${ri} 열${ci} → "${row[ci]}"`);
+                        break outer;
+                    }
+                }
+            }
+        }
+
+        // 3단계: 그래도 못 찾으면 강제 폴백
+        if (countColIdx === -1) {
+            log(2, 'warn', '폴백: 구간 행의 마지막 비어있지 않은 열을 합계 열로 사용');
+            for (let ri = 0; ri < rows.length; ri++) {
+                if (/이상|이하|미만/.test(rows[ri][0])) {
+                    // 마지막 비어있지 않은 열
+                    for (let ci = rows[ri].length - 1; ci >= 1; ci--) {
+                        if (rows[ri][ci] !== '') { countColIdx = ci; break; }
+                    }
+                    headerRowIdx = ri - 1;
+                    break;
+                }
+            }
+            if (countColIdx === -1) { countColIdx = 1; headerRowIdx = 0; }
+            log(2, 'warn', `폴백 결과: 인원 열 = ${countColIdx}`);
+        }
+
+        // 4단계: 데이터 행 순회
+        for (let ri = headerRowIdx + 1; ri < rows.length; ri++) {
+            const row = rows[ri];
+            if (!row || row.length === 0) continue;
+
+            const scoreCell = String(row[0] || '').replace(/\s/g, '');
+            if (!scoreCell) continue;
+
+            // 합계 셀: "106 명", "106명", "106" 모두 처리 → 숫자만 추출
+            const rawCount = String(row[countColIdx] || '');
+            const countMatch = rawCount.match(/\d+/);
+            if (!countMatch) continue;
+            const count = parseInt(countMatch[0]);
+            if (isNaN(count)) continue;
+
+            // 구간 하한값 추출
+            // "100.00" 같은 소수점 숫자를 통째로 인식하도록 \d+\.?\d* 패턴 사용
+            const nums = scoreCell.match(/\d+\.?\d*/g);
+            if (!nums || nums.length === 0) continue;
+            const low = Math.min(...nums.map(parseFloat));
+
+            log(2, 'ok', `  구간: "${scoreCell}" → 하한=${low}, 인원=${count}`);
+
+            if      (low >= 90) { dist.A += count; total += count; }
+            else if (low >= 80) { dist.B += count; total += count; }
+            else if (low >= 70) { dist.C += count; total += count; }
+            else if (low >= 60) { dist.D += count; total += count; }
+            else if (low >= 0)  { dist.E += count; total += count; }
+        }
+
+        log(2, 'ok', `집계: A=${dist.A} B=${dist.B} C=${dist.C} D=${dist.D} E=${dist.E} 합계=${total}`);
+        if (total === 0) log(2, 'warn', '인원 합계가 0입니다. 디버그 미리보기를 확인하세요.');
+
+        dataStore.distribution = { levels: dist, totalCount: total };
+        return true;
+    }
+
+    // ── 파일3: 정답률비교표 ──
+    function parseCorrectRates(rows) {
+        // 전략: "정답률" 헤더 열 인덱스 찾기 → 없으면 마지막 숫자형 열로 폴백
+
+        let rateColIdx = -1;
+        let itemColIdx = 0; // 문항번호 열
+        let headerRowIdx = -1;
+
+        // 전략:
+        //   1) 전체 행을 순회하며 "평균" 셀이 있는 행을 헤더 행으로 확정 → 그 열이 정답률(평균) 열
+        //   2) 못 찾으면 문항번호 1이 나오는 행 기준으로 마지막 숫자 열 폴백
+
+        // 1단계: "평균" 셀이 있는 행 탐색 (제목행 제외 위해 문항번호가 함께 있는 행 우선)
+        for (let ri = 0; ri < rows.length; ri++) {
+            const row = rows[ri];
+            let avgCol = -1;
+            for (let ci = 0; ci < row.length; ci++) {
+                const c = row[ci].replace(/\s/g, '');
+                if (c === '평균' || c === '전체평균') { avgCol = ci; break; }
+            }
+            if (avgCol === -1) continue;
+
+            // 같은 행에 "번호" 또는 숫자반 패턴이 있으면 헤더 행으로 확정
+            const hasClassOrItem = row.some(c => {
+                const t = c.replace(/\s/g,'');
+                return t.includes('번호') || t.includes('반') || /^\d+반$/.test(t);
+            });
+            if (hasClassOrItem) {
+                rateColIdx = avgCol;
+                headerRowIdx = ri;
+                log(3, 'ok', `헤더 행 확정: 행${ri}, 평균 열: ${avgCol} ("${row[avgCol]}")`);
+                break;
+            }
+        }
+
+        // 2단계: 위에서 못 찾으면 "평균" 셀만으로라도 확정
+        if (rateColIdx === -1) {
+            for (let ri = 0; ri < rows.length; ri++) {
+                for (let ci = 0; ci < rows[ri].length; ci++) {
+                    const c = rows[ri][ci].replace(/\s/g, '');
+                    if (c === '평균') {
+                        rateColIdx = ci;
+                        headerRowIdx = ri;
+                        log(3, 'warn', `"평균" 단독 발견: 행${ri} 열${ci}`);
+                        break;
+                    }
+                }
+                if (rateColIdx !== -1) break;
+            }
+        }
+
+        // 3단계: 그래도 없으면 문항1 기준 마지막 비어있지 않은 열
+        if (rateColIdx === -1) {
+            log(3, 'warn', '폴백: 문항1 행에서 마지막 비어있지 않은 열 사용');
+            for (let ri = 0; ri < rows.length; ri++) {
+                if (/^1$/.test(String(rows[ri][0]).trim())) {
+                    headerRowIdx = ri - 1;
+                    for (let ci = rows[ri].length - 1; ci >= 1; ci--) {
+                        if (rows[ri][ci].trim() !== '') { rateColIdx = ci; break; }
+                    }
+                    break;
+                }
+            }
+            if (rateColIdx === -1) { rateColIdx = 1; headerRowIdx = 0; }
+            log(3, 'warn', `폴백 결과: 정답률 열 = ${rateColIdx}`);
+        }
+
+        let rates = [];
+        // headerRowIdx에 의존하지 않고 열0이 정수(문항번호)인 모든 행을 읽음
+        for (let ri = 0; ri < rows.length; ri++) {
+            const row = rows[ri];
+            const itemNum = parseInt(String(row[0]).trim());
+            // 문항번호: 1~100 범위의 정수만 허용 (반 번호, 연도 등 오탐 방지)
+            if (isNaN(itemNum) || itemNum < 1 || itemNum > 100) continue;
+            // 헤더 행 이전은 건너뜀
+            if (ri <= headerRowIdx) continue;
+
+            let rate = parseFloat(row[rateColIdx]);
+
+            if (!isNaN(rate) && rate > 0 && rate <= 1) {
+                rate = parseFloat((rate * 100).toFixed(1));
+                log(3, 'warn', `문항 ${itemNum}: 소수 정답률 → ${rate}%로 변환`);
+            }
+
+            if (!isNaN(rate)) {
+                rates.push({ item: itemNum, rate });
+                log(3, 'ok', `  문항 ${itemNum}: 정답률 ${rate}%`);
+            }
+        }
+
+        if (rates.length === 0) {
+            log(3, 'warn', '문항 데이터를 찾지 못했습니다. 미리보기를 확인하세요.');
+        }
+
+        dataStore.correctRates = rates;
+        return true;
+    }
+
+    // ══════════════════════════════════════════
+    //  결과 생성
+    // ══════════════════════════════════════════
+    function processAll() {
+        if (!dataStore.summary && !dataStore.distribution) {
+            alert("파일을 업로드해 주세요.");
+            return;
+        }
+
+        const subjectName = document.getElementById('subjectName').value || "해당 과목";
+        const expAvg = parseFloat(document.getElementById('expectedAvg').value) || 70;
+        const s = dataStore.summary;
+        const d = dataStore.distribution;
+        const r = dataStore.correctRates;
+
+        document.getElementById('results-container').classList.remove('hidden');
+
+        const actualAvg = s ? s.totalAvg : '-';
+        document.getElementById('summary-body').innerHTML = `
+            <tr><td>2</td><td>${expAvg}</td><td>${actualAvg}</td><td>${s ? s.max : '-'}</td><td>${s ? s.min : '-'}</td></tr>
+        `;
+
+        if (s) {
+            const sortedClasses = Object.keys(s.classAvgs).sort((a,b)=>Number(a)-Number(b));
+            let head = "<tr><th>학년</th>";
+            let body = "<tr><td>2</td>";
+            sortedClasses.forEach(c => {
+                head += `<th>${c}반</th>`;
+                body += `<td>${s.classAvgs[c]}</td>`;
+            });
+            head += "<th>전체</th></tr>";
+            body += `<td>${actualAvg}</td></tr>`;
+            document.getElementById('class-head').innerHTML = head;
+            document.getElementById('class-body').innerHTML = body;
+        }
+
+        if (d) {
+            document.getElementById('achievement-body').innerHTML = `
+                <tr>
+                    <td>2</td>
+                    <td>${d.levels.A}</td><td>${d.levels.B}</td><td>${d.levels.C}</td><td>${d.levels.D}</td><td>${d.levels.E}</td>
+                    <td>${d.totalCount}</td>
+                </tr>
+            `;
+        }
+
+        // 3. 정답률 분석 표: 정답률 구간별 문항 수
+        if (r && r.length > 0) {
+            const bands = { r90: 0, r70: 0, r50: 0, r30: 0, r0: 0 };
+            r.forEach(item => {
+                if      (item.rate >= 90) bands.r90++;
+                else if (item.rate >= 70) bands.r70++;
+                else if (item.rate >= 50) bands.r50++;
+                else if (item.rate >= 30) bands.r30++;
+                else                     bands.r0++;
+            });
+            const total = r.length;
+            document.getElementById('correct-rate-body').innerHTML = `
+                <tr>
+                    <td>2</td>
+                    <td>${bands.r90}</td><td>${bands.r70}</td><td>${bands.r50}</td><td>${bands.r30}</td><td>${bands.r0}</td>
+                    <td>${total}</td>
+                </tr>
+            `;
+        }
+
+        generateAnalysis(subjectName, expAvg, actualAvg, s, d, r);
+
+        // 모든 td에 클릭 복사 이벤트 등록
+        setTimeout(() => {
+            document.querySelectorAll('#results-container td').forEach(td => {
+                td.onclick = () => {
+                    const val = td.innerText.trim();
+                    navigator.clipboard.writeText(val).then(() => {
+                        td.classList.add('copied');
+                        setTimeout(() => td.classList.remove('copied'), 800);
+                    });
+                };
+            });
+        }, 50);
+
+        window.scrollTo({ top: document.getElementById('results-container').offsetTop, behavior: 'smooth' });
+    }
+
+    function generateAnalysis(subject, exp, act, summary, dist, rates) {
+        const actNum = parseFloat(act);
+        let lines = [];
+
+        // ── 항목 1: 평균 및 학급별 분포 ──
+        if (summary) {
+            const classVals = Object.values(summary.classAvgs);
+            const classMin  = Math.min(...classVals).toFixed(1);
+            const classMax  = Math.max(...classVals).toFixed(1);
+            const gap       = (parseFloat(classMax) - parseFloat(classMin)).toFixed(1);
+            const lowCls    = Object.keys(summary.classAvgs).filter(c => summary.classAvgs[c] < exp);
+            const highCls   = Object.keys(summary.classAvgs).filter(c => summary.classAvgs[c] >= exp);
+
+            let line = `- 이번 ${subject} 시험의 전체 평균은 ${act}점으로, 사전에 설정한 예상 평균(${exp}점)을 ${actNum >= exp ? (actNum - exp).toFixed(1) + '점 웃도는' : Math.abs(actNum - exp).toFixed(1) + '점 하회하는'} 결과가 나왔다.`;
+            line += ` 학급별로는 ${classMin}점에서 ${classMax}점 사이에 분포하였으며, 가장 높은 학급과 낮은 학급 사이의 차이는 ${gap}점으로 나타났다.`;
+            if (dist) {
+                line += ` 성취도 A 수준 학생이 ${dist.levels.A}명, B 수준이 ${dist.levels.B}명으로 전체의 절반 이상이 상위권에 해당하여 전반적인 학업 수준은 안정적인 편이다.`;
+            }
+            if (lowCls.length > 0) {
+                line += ` 다만 ${lowCls.join(', ')}반의 경우 예상 평균에 미치지 못하였으므로, 해당 학급 학생들의 학습 내용 이해도를 다시 점검하고 수업 중 질문 기회를 늘리는 방식으로 보완 지도를 진행할 예정이다.`;
+            } else {
+                line += ` 모든 학급이 예상 평균 이상의 결과를 보여 긍정적이나, 학급 간 점수 차이를 줄이기 위해 수업 자료의 수준을 학급별로 조율하고 공통 형성평가를 정기적으로 시행할 계획이다.`;
+            }
+            lines.push(line);
+        }
+
+        // ── 항목 2: 정답률 분석 ──
+        if (rates && rates.length > 0) {
+            const rateVals = rates.map(r => r.rate);
+            const rateMin  = Math.min(...rateVals).toFixed(1);
+            const rateMax  = Math.max(...rateVals).toFixed(1);
+            const cnt90    = rates.filter(r => r.rate >= 90).length;
+            const cnt70    = rates.filter(r => r.rate >= 70 && r.rate < 90).length;
+            const cnt50    = rates.filter(r => r.rate >= 50 && r.rate < 70).length;
+            const low30    = rates.filter(r => r.rate < 30);
+            const low50    = rates.filter(r => r.rate < 50);
+            const total    = rates.length;
+
+            let line = `- 전체 ${total}개 문항의 정답률은 ${rateMin}%에서 ${rateMax}% 사이에 분포하였다.`;
+            line += ` 정답률 90% 이상인 쉬운 문항이 ${cnt90}개, 70~90% 사이의 문항이 ${cnt70}개로 전체 문항의 대부분을 차지하였다.`;
+            if (cnt50 > 0) {
+                line += ` 50~70% 구간의 문항은 ${cnt50}개로, 중위권 학생들의 이해도 차이가 드러나는 구간이었다.`;
+            }
+            if (low30.length > 0) {
+                line += ` 정답률 30% 미만인 문항(${low30.map(r => r.item + '번').join(', ')})은 많은 학생이 틀린 만큼, 해당 내용에 대한 오개념이 형성되어 있을 가능성이 높다. 수업 시간 내 즉각적인 오답 풀이와 개념 재정리를 통해 같은 실수가 반복되지 않도록 지도하였다.`;
+            } else if (low50.length > 0) {
+                line += ` 정답률이 낮은 편인 문항(${low50.map(r => r.item + '번').join(', ')})에 대해서는 관련 개념을 다시 짚어주는 보충 자료를 제공하고, 유사 유형의 문제를 추가로 풀어보는 기회를 마련할 예정이다.`;
+            } else {
+                line += ` 전반적으로 정답률이 고르게 분포하였으나, 대부분의 문항이 고정답률에 집중되어 있어 다음 평가에서는 학생들의 사고력과 응용력을 확인할 수 있는 문항을 일부 포함하여 변별력을 높일 계획이다.`;
+            }
+            lines.push(line);
+        }
+
+        // ── 항목 3: 성취도 하위권 지원 ──
+        if (dist) {
+            const total    = dist.totalCount;
+            const ePct     = total > 0 ? (dist.levels.E / total * 100).toFixed(1) : 0;
+            const dPct     = total > 0 ? (dist.levels.D / total * 100).toFixed(1) : 0;
+            const deCount  = dist.levels.D + dist.levels.E;
+            const abcCount = dist.levels.A + dist.levels.B + dist.levels.C;
+
+            let line = `- 성취도 E 수준에 해당하는 학생이 ${dist.levels.E}명(${ePct}%)으로 나타났으며, D 수준(${dist.levels.D}명)까지 합하면 총 ${deCount}명의 학생이 기준 점수(60점)에 미치지 못하였다.`;
+            line += ` 이 학생들의 경우 특정 단원이나 개념에 대한 기초가 부족한 경우가 많으므로, 오답 문항을 중심으로 개인별 학습 결손 내용을 파악하고 수준에 맞는 보충 학습 자료를 별도로 제공할 예정이다.`;
+            line += ` 또한 학급 내에서 학업 성취도가 높은 학생(A·B·C 수준 ${abcCount}명)과 자연스럽게 협력하는 모둠 활동을 구성하여, 또래 간 설명과 질문이 이루어지는 환경을 만들고 하위권 학생들이 수업에 더 적극적으로 참여할 수 있도록 유도할 계획이다.`;
+            if (summary) {
+                line += ` 최하점(${summary.min}점) 학생의 경우 별도 면담을 통해 학습 어려움의 원인을 파악하고, 가정과의 연계 지도를 포함한 개별 지원 방안을 마련하겠다.`;
+            }
+            lines.push(line);
+        }
+
+        document.getElementById('analysis-text').innerText = lines.join('\n');
+    }
+
+    function copyTable(id) {
+        const table = document.getElementById(id);
+        // 데이터 행(td)만으로 HTML 테이블 구성
+        let tableHtml = '<table>';
+        table.querySelectorAll('tr').forEach(tr => {
+            const tds = tr.querySelectorAll('td');
+            if (tds.length === 0) return;
+            tableHtml += '<tr>';
+            tds.forEach(td => {
+                tableHtml += `<td>${td.innerText.replace(/\n/g, ' ').trim()}</td>`;
+            });
+            tableHtml += '</tr>';
+        });
+        tableHtml += '</table>';
+
+        // 텍스트(탭 구분)도 함께
+        const lines = [];
+        table.querySelectorAll('tr').forEach(tr => {
+            const tds = tr.querySelectorAll('td');
+            if (tds.length === 0) return;
+            lines.push(Array.from(tds).map(td => td.innerText.replace(/\n/g, ' ').trim()).join('\t'));
+        });
+        const plainText = lines.join('\n');
+
+        try {
+            const item = new ClipboardItem({
+                'text/html':  new Blob([tableHtml],  { type: 'text/html' }),
+                'text/plain': new Blob([plainText], { type: 'text/plain' })
+            });
+            navigator.clipboard.write([item]).then(() =>
+                alert("복사 완료! 첫 칸에서 Ctrl+V → 원본 형식 유지 → 내용만 덮어쓰기")
+            );
+        } catch(e) {
+            navigator.clipboard.writeText(plainText).then(() =>
+                alert("복사되었습니다.")
+            );
+        }
+    }
+
+    function copyText(id) {
+        const text = document.getElementById(id).innerText;
+        navigator.clipboard.writeText(text).then(() => alert("텍스트 내용이 복사되었습니다."));
+    }
+</script>
+</body>
+</html>
