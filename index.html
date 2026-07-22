@@ -68,6 +68,19 @@
             border-radius: 4px;
         }
 
+        #subjectName {
+            border: 2px solid #dc2626;
+            box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15);
+        }
+
+        .subject-warning {
+            text-align: center;
+            color: #dc2626;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin: 8px 0 20px 0;
+        }
+
         input[type="number"] { width: 80px; }
         input[type="text"] { width: 100px; }
 
@@ -251,6 +264,7 @@
             <input type="number" id="expectedAvg" value="70"> 점
         </div>
     </div>
+    <p class="subject-warning">⚠ 입력된 과목명을 기준으로 분석이 진행되니, 반드시 정확한 &lt;과목명&gt;을 입력해 주세요.</p>
 <img src="1.png" style="width:60%; display:block; margin:0 auto 20px auto; border-radius:8px;">
      <div class="drop-grid">
         <!-- 도수분포표 -->
